@@ -1,0 +1,47 @@
+name: Red Team Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "src/**"
+      - "payloads/**"
+      - "tests/**"
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why this run was triggered manually (e.g. model version bump)"
+        required: false
+        default: "manual run"
+
+jobs:
+  fast-subset:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Run fast subset (every push)
+        run: pytest tests/test_red_team.py -k test_fast_subset_never_bypasses_guardrails -v
+        env:
+          RED_TEAM_RUNS: "5"
+
+  full-corpus:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Run full corpus (nightly, on model bump, or manual trigger)
+        run: pytest tests/test_red_team.py -k test_full_corpus_never_bypasses_guardrails -v
+        env:
+          RED_TEAM_RUNS: "10"
