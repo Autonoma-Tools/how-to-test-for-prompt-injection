@@ -1,5 +1,21 @@
 name: Red Team Suite
 
+# >>> IN YOUR OWN REPO, RUN THE FULL CORPUS ON A NIGHTLY SCHEDULE. <<<
+#
+#   schedule:
+#     - cron: "0 3 * * *"
+#
+# That cron is deliberately absent here, and only because of what this specific
+# repo is. The app under test is FakeAppClient, a deterministic stub that ships
+# one intentionally weak payload (jailbreak-002) so the corpus has a real bypass
+# to catch instead of being an all-green demo. The suite therefore reports a
+# genuine finding on every full-corpus run, which is correct behaviour for the
+# demo and useless as a nightly signal on a public reference repo.
+#
+# Against a real app you want the opposite: the full tier on a nightly cron, so a
+# provider-side model update that quietly reopens a closed bypass gets caught
+# without a commit of yours to trigger it. Uncomment the two lines above.
+
 on:
   push:
     branches: [main]
@@ -8,8 +24,6 @@ on:
       - "src/**"
       - "payloads/**"
       - "tests/**"
-  schedule:
-    - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
       reason:
@@ -34,6 +48,8 @@ jobs:
 
   full-corpus:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # The 'schedule' clause is kept so that re-adding the cron above is the only
+    # edit needed to get nightly runs back.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +57,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
-      - name: Run full corpus (nightly, on model bump, or manual trigger)
+      - name: Run full corpus (on model bump or manual trigger; nightly once you add the cron)
         run: pytest tests/test_red_team.py -k test_full_corpus_never_bypasses_guardrails -v
         env:
           RED_TEAM_RUNS: "10"
